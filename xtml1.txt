@@ -1,0 +1,66 @@
+/*-------------------------------------------*/
+/*	追加・サイトマップ作成
+/*-------------------------------------------*/
+function create_xml_sitemap() {
+
+	$sitemap = '<?xml version="1.0" encoding="UTF-8"?>' . "\n" .
+			'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
+
+	$args = array(
+		'posts_per_page' => -1,
+		'orderby' => 'modified',
+		'order' => 'DESC',
+		'post_type' => array('post','page','news_tokyo','news','contribution'),
+		'post_status' => 'publish'
+	);
+	$posts_array = get_posts( $args );
+	foreach( $posts_array as $post) {
+		$post_modified = explode(' ', $post->post_modified);
+		$sitemap .=
+			"\t" . '<url>' . "\n" .
+			"\t\t" . '<loc>' . get_permalink( $post->ID ) . '</loc>' . "\n" .
+			"\t\t" . '<lastmod>' . $post_modified[0] . '</lastmod>' . "\n" .
+			"\t\t" . '<changefreq>weekly</changefreq>' . "\n" .
+			"\t\t" . '<priority>0.8</priority>' . "\n" .
+			"\t" . '</url>' . "\n";
+	}
+	$sitemap .= '</urlset>' . "\n";
+
+	$fh = fopen( ABSPATH. "sitemap.xml", 'w' );
+	if ($fh) {
+		fwrite($fh, $sitemap);
+		fclose($fh);
+		// グーグルに更新したことを通知
+		ping_trans( 'http://google.com/ping?sitemap=' . esc_url( home_url('/') ) . 'sitemap.xml');
+	}
+}
+// 投稿ステータスが公開または更新でサイトマップを作成するようにする
+add_action( "publish_post", "create_xml_sitemap" );
+add_action( "publish_page", "create_xml_sitemap" );
+add_action( "publish_news_tokyo", "create_xml_sitemap" );
+add_action( "publish_news", "create_xml_sitemap" );
+add_action( "publish_contribution", "create_xml_sitemap" );
+
+// 投稿ステータスが公開または更新でサイトマップを作成するようにする
+function ping_trans($url) {
+
+	$ch = curl_init();
+	if ($ch != false) {
+		curl_setopt($ch, CURLOPT_URL, $url);
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+		$result= curl_exec($ch);
+		curl_close($ch);
+
+		// 送信結果をログファイルに保存
+		if ($result == false) {
+			$str = date_i18n("Y-m-d H:i:s") . ' send NG.' . "\n";
+		} else {
+			$str = date_i18n("Y-m-d H:i:s") . ' send OK.' . "\n";
+		}
+		$fh = fopen( ABSPATH. "sitemap.log", 'a+' );
+		if ($fh) {
+			fwrite($fh, $str);
+			fclose($fh);
+		}
+	}
+}
